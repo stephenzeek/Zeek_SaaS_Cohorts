@@ -1,0 +1,125 @@
+#setwd("/Users/stephenzeek/Documents/HS Analytics/Cohorting/Cohorting_Data")
+####Create Process for creating spreadsheet of customers####
+#### For Dev: Use for loop to read a list of files and then perform cleaning/transforming
+#### For Prod: Copy DB and connect directly to server
+
+###Pull in Traffic Data####
+ga_list <- list.files(pattern="GA_Traffic*")
+ga_archive <- data.frame()
+
+for (i in 1:length(ga_list)) {
+  temp_ga <- read.csv(ga_list[i])
+  ga_archive <- rbind(ga_archive, temp_ga)
+}
+
+ga_archive <- data.table(ga_archive)
+ga_archive[,Date := as.Date(ga_archive[,Date],format = "%m/%d/%y")]
+
+###Append Cohort to GA so they can be aggregated####
+dateRange <- ga_archive$Date
+x <- as.POSIXlt(dateRange) 
+ga_archive$Cohort <- as.numeric(strftime(x,format="%W")) + 1
+ga_archive$Cohort <- sprintf("%02d",ga_archive$Cohort)
+ga_archive$year <- as.numeric(substr(ga_archive$Date,3,4))
+ga_archive$Cohort <- paste(ga_archive$Cohort,ga_archive$year, sep = "")
+
+
+
+####Pull Together All Closed Deals
+#### SPEC: need to pull in prepay revenue here from DB. Needs to be in deals table####
+co_list <- list.files(pattern="Deals_*")
+co_archive <- data.frame()
+
+####This will be replaced with SQL in prod
+for (i in 1:length(co_list)) {
+  temp_co <- read.csv(co_list[i])
+  co_archive <- rbind(co_archive, temp_co)
+}
+
+# co_archive$Last.Payment.Amt <- NULL
+# co_archive$Prepaid.Revenue <- NULL
+
+###Data Type Transformation####
+co_archive <- data.table(co_archive)
+co_archive[,Company.ID := as.numeric(co_archive[,Company.ID])]
+co_archive[,Created.On := substr(co_archive[,Created.On],1,8)]
+co_archive[,Created.On := as.Date(co_archive[,Created.On],format = "%m/%d/%y")]
+co_archive[,Deal.Closed := substr(co_archive[,Deal.Closed],1,8)]
+co_archive[,Deal.Closed := as.Date(co_archive[,Deal.Closed],format = "%m/%d/%y")]
+co_archive[,Days_to_Close := as.numeric(Deal.Closed - Created.On)]
+
+#####Load Pre-Pays
+#####SQL in Prod#####
+#######Need to re-do this after investigate best way to fold in pre-pays from DB. 
+######May be RBIND####
+######Can pre-pays be included in deals table? Do we need a separate table for them?####
+pre <- read.csv("PrePay_160115.csv")
+pre <- data.table(pre)
+pre[,Last.Payment.Amt := as.numeric(pre[,Last.Payment.Amt])]
+pre[,Prepaid.Revenue := as.numeric(pre[,Prepaid.Revenue])]
+
+pre$Created.On <- NULL
+pre$Deal.Closed <- NULL
+pre$Source <- NULL
+pre$Medium <- NULL
+
+####Merge pre-pays with deals  ####34888,36544
+co_archive <- merge(co_archive,pre,by = c("Company.ID","Company.Name"),all.x = T)
+co_archive$Prepaid.Revenue[is.na(co_archive$Prepaid.Revenue)] <- 0
+
+####Load LTV & merge with co_archive#####
+#####
+ltv <- read.csv("LTV_Data_160119.csv")
+ltv <- data.table(ltv)
+ltv$com_owner_id <- NULL
+setnames(ltv,names(ltv),c("Company.ID","LTV"))
+co_archive <- merge(co_archive, ltv,by = "Company.ID" )
+
+####Trials
+tr_archive <- read.csv("Trials_Raw_160115.csv")
+tr_archive <- data.table(tr_archive)
+
+####Scrub Trial Email Addresses for "Test", "+","Zendesk","HappyFox","Freshdesk"
+####figure out "+"
+zen <- tr_archive[like(Acct.Owner.Email,"zend")] 
+hpy <- tr_archive[like(Acct.Owner.Email,"HappyFox")]
+frs <- tr_archive[like(Acct.Owner.Email,"Freshdesk")]
+hot <- tr_archive[like(Acct.Owner.Email,"Hotmail")]
+ts <- tr_archive[like(Acct.Owner.Email,"test")]
+asdf <- tr_archive[like(Acct.Owner.Email,"asdf")]
+dsada <- tr_archive[like(Acct.Owner.Email,"dsada")]
+uv <- tr_archive[like(Acct.Owner.Email,"uservoice.com")]
+dsk <- tr_archive[like(Acct.Owner.Email,"desk.com")]
+tsup <- tr_archive[like(Acct.Owner.Email,"teamsupport.com")]
+grv <- tr_archive[like(Acct.Owner.Email,"groovehq.com")]
+
+scrub <- rbind(zen,hpy,frs,hot,ts,asdf,dsada,uv,dsk,tsup,grv)
+tr_archive$scrub <- ifelse(tr_archive$Company.ID %in% scrub$Company.ID,1,0)
+tr_archive <- tr_archive[scrub == 0]
+tr_archive <- unique(tr_archive)
+
+#####Columns Not Needed#####
+tr_archive$Last.Payment <- NULL
+tr_archive$Next.Payment <- NULL
+tr_archive$How.did.you.hear <- NULL
+tr_archive$Analytics.Source <- NULL
+tr_archive$Acct.Owner.Name <- NULL
+tr_archive$Acct.Owner.Email <- NULL
+tr_archive$Mailboxes <- NULL
+tr_archive$Promo.s. <- NULL
+tr_archive$Promo.s..1 <- NULL
+tr_archive$Analytics.Content <- NULL
+tr_archive$scrub <- NULL
+
+tr_archive[,Created := as.Date(tr_archive[,Created],format = "%m/%d/%y")]
+
+#####Churns######
+####Dollar Figures in this table need to be numeric in prod#####
+ch_list <- list.files(pattern="Churns_*")
+ch_archive <- data.frame()
+
+for (i in 1:length(ch_list)) {
+  temp_ch <- read.csv(ch_list[i])
+  ch_archive <- rbind(ch_archive, temp_ch)
+}
+ch_archive <- data.table(ch_archive)
