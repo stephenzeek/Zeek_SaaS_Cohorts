@@ -1,0 +1,17 @@
+#setwd("/Users/stephenzeek/Documents/HS Analytics/Cohorting/Cohorting_Data")
+
+begin <- Sys.time()
+library(data.table)
+library(zoo)
+library(rJava)
+library(xlsx)
+options(stringsAsFactors = FALSE)
+
+#source("HS_DB_CON.R")
+source("Cohort_Data_Pull_160120.R")
+source("Cohort_Computation_160120.R")
+source("Cohort_Output_160120.R")
+
+end <- Sys.time()
+elp <- end - begin
+print(elp)
