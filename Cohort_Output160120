@@ -1,0 +1,13 @@
+###This Script writes the aggregation from "Cohort Computation" to the Results folder within the "Cohorting Data" directory
+
+####Output to Excel#######
+###Change file names
+write.xlsx2(deals_agg, paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="Cohorts",append = TRUE,row.names = F)
+write.xlsx2(month_agg,paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="By_Month", append=TRUE,row.names = F)
+write.xlsx2(chan_agg,paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="By_Growth_Channel",append = TRUE,row.names = F)
+write.xlsx2(trial_st,paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="Raw_Data", append=TRUE,row.names = F)
+write.xlsx2(scrub,paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="Scrubs", append=TRUE,row.names = F)
+write.xlsx2(ch_archive,paste(getwd(),"/Results/",as.character(Sys.Date()),"_HS_Cohorts.xlsx",sep=""), sheetName="Churns", append=TRUE,row.names = F)
+
+
+
